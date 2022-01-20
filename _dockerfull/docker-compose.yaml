@@ -1,0 +1,50 @@
+version: "3.7"
+
+services:
+  nginx:
+    build: ${CONTAINER_NGINX}
+    restart: on-failure
+    volumes:
+      # this will mount the api folder which contains the code to the docker container
+      - ./../api:/var/www/api:delegated
+      # this will mount the nginx logs so that you can check the logs for errors,
+      # without logging into the container
+      - ./var/logs/nginx/:/var/log/nginx:delegated
+      # this will create the server config to serve the api
+      - ./nginx/api.conf:/etc/nginx/conf.d/api.conf:delegated
+    ports:
+      - "90:80"
+    depends_on:
+      - api
+    networks:
+      - monitoring
+
+  api:
+    build: ${CONTAINER_PHP}
+    restart: on-failure
+    volumes:
+      # this will mount the api folder which contains the code to the docker container
+      - ./../api:/var/www/api:delegated
+      # this will mount the custom `.ini` to the container
+      - ./php8/php.ini:/usr/local/etc/php/php.ini:ro
+      - ./php8/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
+
+    networks:
+      - monitoring
+  db:
+    image: mysql:latest
+    hostname: db.${CFG_ENVIRONMENT}
+    command: --default-authentication-plugin=mysql_native_password
+    #    ports:
+    #      - 8083:3306
+    volumes:
+      - ./db:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+
+networks:
+  monitoring:
+    driver: bridge
